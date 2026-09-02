@@ -1,4 +1,4 @@
-.PHONY: help doctor test build api web fixture demo bench questions schema seed redteam tidy clean
+.PHONY: help doctor test ci build api web fixture demo bench questions schema seed redteam tidy clean
 
 help:
 	@echo "ARGUS"
@@ -11,6 +11,7 @@ help:
 	@echo "  bench     run every retrieval arm, write bench/results.md"
 	@echo "  questions write the benchmark question set to bench/questions.json"
 	@echo "  test      run the Go test suite"
+	@echo "  ci        everything CI runs: gofmt, vet, go test, biome, tsc, build"
 	@echo "  redteam   run the adversarial suite"
 	@echo "  build     build all binaries into ./bin"
 
@@ -19,6 +20,19 @@ doctor:
 
 test:
 	go test ./...
+
+# One command that runs exactly what CI runs, so a green local run means a
+# green pipeline. The gofmt check is a diff-empty assertion rather than a
+# rewrite: CI must fail on unformatted code, not silently fix it.
+ci:
+	@echo "==> gofmt"
+	@test -z "$$(gofmt -l ./cmd ./internal)" || (gofmt -l ./cmd ./internal && echo "unformatted files above" && exit 1)
+	@echo "==> go vet"
+	go vet ./...
+	@echo "==> go test"
+	go test ./...
+	@echo "==> web"
+	cd web && npm run ci
 
 build:
 	go build -o bin/ ./cmd/...

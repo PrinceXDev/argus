@@ -6,10 +6,10 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
-		"lint": "next lint",
+		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
-		"biome:check": "biome check .",
-		"biome:fix": "biome check --write ."
+		"lint:fix": "biome check --write .",
+		"ci": "biome check . && tsc --noEmit && next build"
 	},
 	"dependencies": {
 		"next": "^16.3.4",

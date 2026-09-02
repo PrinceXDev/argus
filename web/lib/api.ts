@@ -173,8 +173,9 @@ export async function ask(
 		// SSE frames are separated by a blank line. A partial frame stays in the
 		// buffer until its terminator arrives, so a chunk boundary mid-event never
 		// produces a truncated parse.
-		let sep: number;
-		while ((sep = buffer.indexOf("\n\n")) !== -1) {
+		for (;;) {
+			const sep = buffer.indexOf("\n\n");
+			if (sep === -1) break;
 			const frame = buffer.slice(0, sep);
 			buffer = buffer.slice(sep + 2);
 			dispatch(frame, handlers);

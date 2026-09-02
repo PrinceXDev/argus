@@ -269,6 +269,7 @@ export default function Page() {
 							{EXAMPLES.map((ex) => (
 								<button
 									key={ex}
+									type="button"
 									onClick={() => {
 										setQuestion(ex);
 										void submit(ex);

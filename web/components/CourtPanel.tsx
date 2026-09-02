@@ -56,9 +56,9 @@ export function CourtPanel({ ruling }: { ruling: Ruling }) {
 						{ruling.disputes.length === 1 ? "" : "s"}
 					</p>
 					<ul className="mt-2 space-y-2">
-						{ruling.disputes.map((d, i) => (
+						{ruling.disputes.map((d) => (
 							<li
-								key={i}
+								key={`${d.claimId}:${d.counterText}`}
 								className="rounded border border-line bg-panel-2 p-2.5 text-[13px]"
 							>
 								<p className="text-fg/85">{d.counterText}</p>

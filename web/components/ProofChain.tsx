@@ -41,7 +41,7 @@ export function ProofChain({
 
 				return (
 					<li
-						key={`${step.claimId}-${i}`}
+						key={step.claimId}
 						className="step-in relative pl-8"
 						style={{ animationDelay: `${i * 90}ms` }}
 					>
@@ -110,9 +110,9 @@ export function ProofChain({
 									/>
 								</div>
 
-								{disputed.map((d, j) => (
+								{disputed.map((d) => (
 									<div
-										key={j}
+										key={`${d.counterSource.id}:${d.counterText}`}
 										className="mt-2.5 rounded border border-contested/40 bg-contested/5 p-2 text-[12px]"
 									>
 										<span className="font-medium text-contested">Disputed</span>
@@ -126,6 +126,7 @@ export function ProofChain({
 
 								{onRetract && (
 									<button
+										type="button"
 										onClick={() => onRetract(step.claimId)}
 										disabled={!!retractingId}
 										className="mt-2.5 rounded border border-line px-2 py-1 font-mono text-[11px]
