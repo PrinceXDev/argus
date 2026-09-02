@@ -1,0 +1,19 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    container_name: argus-falkordb
+    ports:
+      - "6379:6379"   # RESP / GRAPH.QUERY
+      - "3000:3000"   # FalkorDB Browser
+    volumes:
+      - falkor-data:/var/lib/falkordb/data
+    command: >
+      --requirepass ${FALKORDB_PASSWORD:-argus-dev}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${FALKORDB_PASSWORD:-argus-dev}", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  falkor-data:

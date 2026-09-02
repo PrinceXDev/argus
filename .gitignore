@@ -1,0 +1,28 @@
+# Go
+/bin/
+*.exe
+*.test
+*.out
+
+# Env & secrets
+.env
+.env.local
+*.pem
+
+# Node / Next
+web/node_modules/
+web/.next/
+web/out/
+web/.env*.local
+
+# Data & artifacts
+/data/raw/
+/data/cache/
+/bench/runs/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
