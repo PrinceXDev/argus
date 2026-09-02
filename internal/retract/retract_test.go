@@ -214,7 +214,7 @@ func TestAnalyse_IdentifiesTheLoadBearingFact(t *testing.T) {
 	e := newEngine(g)
 
 	a, err := e.Analyse(context.Background(),
-		prove.Question{Text: "Did Zeta control Acme?"}, qvec, baseVerdict())
+		prove.Question{Text: "Did Zeta control Acme?"}, qvec, baseVerdict(), "")
 	if err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestAnalyse_DistinguishesCorroboratedFromLoadBearing(t *testing.T) {
 	e := newEngine(g)
 
 	a, err := e.Analyse(context.Background(),
-		prove.Question{Text: "q"}, qvec, baseVerdict())
+		prove.Question{Text: "q"}, qvec, baseVerdict(), "")
 	if err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestAnalyse_MakesNoModelCalls(t *testing.T) {
 	// nothing tried.
 	e := newEngine(g)
 
-	a, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict())
+	a, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict(), "")
 	if err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestAnalyse_ForksOncePerCandidate(t *testing.T) {
 	g := newForkGraph()
 	e := newEngine(g)
 
-	a, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict())
+	a, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict(), "")
 	if err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestAnalyse_ReapsEveryFork(t *testing.T) {
 	g := newForkGraph()
 	e := newEngine(g)
 
-	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict()); err != nil {
+	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict(), ""); err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
 	graphs, _ := g.ListGraphs(context.Background())
@@ -330,7 +330,7 @@ func TestAnalyse_RespectsConcurrencyBound(t *testing.T) {
 	e := newEngine(g)
 	e.Concurrency = 2
 
-	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict()); err != nil {
+	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict(), ""); err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
 	if g.maxLive > 2 {
@@ -344,7 +344,7 @@ func TestAnalyse_LeavesThePrimaryGraphIntact(t *testing.T) {
 	before := g.reach[primary][answer]
 	e := newEngine(g)
 
-	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict()); err != nil {
+	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict(), ""); err != nil {
 		t.Fatalf("Analyse: %v", err)
 	}
 	if got := g.reach[primary][answer]; got != before {
@@ -358,7 +358,7 @@ func TestAnalyse_LeavesThePrimaryGraphIntact(t *testing.T) {
 func TestAnalyse_RejectsVerdictWithNoChains(t *testing.T) {
 	e := newEngine(newForkGraph())
 	_, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec,
-		&prove.Verdict{Status: prove.StatusInsufficient})
+		&prove.Verdict{Status: prove.StatusInsufficient}, "")
 	if err == nil {
 		t.Fatal("expected an error when there is nothing to analyse")
 	}
@@ -366,7 +366,7 @@ func TestAnalyse_RejectsVerdictWithNoChains(t *testing.T) {
 
 func TestAnalyse_RequiresPrecomputedVector(t *testing.T) {
 	e := newEngine(newForkGraph())
-	_, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, nil, baseVerdict())
+	_, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, nil, baseVerdict(), "")
 	if err == nil {
 		t.Fatal("expected an error without a question vector")
 	}
@@ -380,7 +380,7 @@ func TestAnalyse_PropagatesForkFailure(t *testing.T) {
 	g.copyErr = kg.ErrNotAFork
 	e := newEngine(g)
 
-	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict()); err == nil {
+	if _, err := e.Analyse(context.Background(), prove.Question{Text: "q"}, qvec, baseVerdict(), ""); err == nil {
 		t.Fatal("a failed fork must surface, not be silently skipped")
 	}
 }

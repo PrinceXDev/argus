@@ -25,6 +25,8 @@ package retract
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -112,11 +114,14 @@ func NewEngine(graph kg.Writer, prover *prove.Engine) *Engine {
 	return &Engine{graph: graph, prover: prover, Concurrency: 3, MaxCandidates: 12}
 }
 
-// Analyse measures how much each claim on a verdict's chains matters.
+// Analyse measures how much each claim on a verdict's chains matters. When
+// claimID is non-empty, only that claim is tested rather than every candidate
+// on the chains - so retracting one selected fact does not sweep the whole
+// derivation.
 //
 // The caller supplies the already-computed question vector so no model call
 // happens anywhere in this path.
-func (e *Engine) Analyse(ctx context.Context, q prove.Question, qvec []float64, base *prove.Verdict) (*Analysis, error) {
+func (e *Engine) Analyse(ctx context.Context, q prove.Question, qvec []float64, base *prove.Verdict, claimID string) (*Analysis, error) {
 	if base == nil || len(base.Chains) == 0 {
 		return nil, errors.New("retract: nothing to analyse - the verdict has no chains")
 	}
@@ -127,6 +132,12 @@ func (e *Engine) Analyse(ctx context.Context, q prove.Question, qvec []float64, 
 
 	baseConf := base.Chains[0].Confidence
 	candidates := candidateClaims(base, e.MaxCandidates)
+	if claimID != "" {
+		candidates = filterCandidate(candidates, claimID)
+		if len(candidates) == 0 {
+			return nil, fmt.Errorf("retract: claim %q is not on the verdict's chains", claimID)
+		}
+	}
 	if len(candidates) == 0 {
 		return nil, errors.New("retract: no candidate claims on the verdict's chains")
 	}
@@ -142,6 +153,10 @@ func (e *Engine) Analyse(ctx context.Context, q prove.Question, qvec []float64, 
 	sem := make(chan struct{}, max(1, e.Concurrency))
 	var wg sync.WaitGroup
 
+	// runID is unique per analysis so concurrent sweeps never share a fork key
+	// even when they pick the same slot and claim.
+	runID := newRunID()
+
 	for i, c := range candidates {
 		wg.Add(1)
 		go func(i int, c candidate) {
@@ -154,7 +169,7 @@ func (e *Engine) Analyse(ctx context.Context, q prove.Question, qvec []float64, 
 			}
 			defer func() { <-sem }()
 
-			r, err := e.testOne(ctx, q, qvec, baseConf, c, i)
+			r, err := e.testOne(ctx, q, qvec, baseConf, c, i, runID)
 			if err != nil {
 				errs[i] = err
 				return
@@ -213,11 +228,22 @@ func candidateClaims(v *prove.Verdict, limit int) []candidate {
 	return out
 }
 
+// filterCandidate narrows a candidate list to the single claim requested, if
+// it is on the verdict's chains at all.
+func filterCandidate(candidates []candidate, claimID string) []candidate {
+	for _, c := range candidates {
+		if c.id == claimID {
+			return []candidate{c}
+		}
+	}
+	return nil
+}
+
 // testOne forks the graph, ablates one claim, and re-derives.
 func (e *Engine) testOne(ctx context.Context, q prove.Question, qvec []float64,
-	baseConf float64, c candidate, slot int) (Retraction, error) {
+	baseConf float64, c candidate, slot int, runID string) (Retraction, error) {
 
-	fork := fmt.Sprintf("%s%d_%s", kg.ForkPrefix, slot, shortID(c.id))
+	fork := fmt.Sprintf("%s%s_%d_%s", kg.ForkPrefix, runID, slot, shortID(c.id))
 
 	// A leftover fork from an aborted run would be re-used with stale state, so
 	// the slot is always cleared first.
@@ -304,6 +330,14 @@ func ReapForks(ctx context.Context, g kg.Writer) (int, error) {
 		n++
 	}
 	return n, nil
+}
+
+// newRunID returns a short random token identifying one analysis run, so
+// concurrent analyses never collide on the same fork graph key.
+func newRunID() string {
+	var b [8]byte
+	_, _ = crand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }
 
 func shortID(s string) string {

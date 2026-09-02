@@ -412,9 +412,11 @@ func (e *Engine) search(ctx context.Context, q Question, anchors []Anchor, vec [
 		return nil, nil, calls, fmt.Errorf("prove: root discovery: %w", err)
 	}
 	roots := make([]string, 0, len(rootRows))
+	rootConf := make(map[string]float64, len(rootRows))
 	for _, r := range rootRows {
 		if id, ok := r.Str("id"); ok {
 			roots = append(roots, id)
+			rootConf[id] = r.FloatOr("conf", 1)
 		}
 	}
 	if len(roots) == 0 {
@@ -454,7 +456,10 @@ func (e *Engine) search(ctx context.Context, q Question, anchors []Anchor, vec [
 				if _, wanted := candidates[id]; !wanted {
 					continue
 				}
-				w := r.IntOr("weight", 0)
+				// The premise's own confidence is not on any ENTAILS edge, so it
+				// must be folded into the path weight here or the chain's
+				// probability would silently omit it.
+				w := r.IntOr("weight", 0) + kg.WeightFromConfidence(rootConf[rootID])
 				if cur, seen := best[id]; seen && cur.weight <= w {
 					continue
 				}
@@ -517,7 +522,7 @@ func (e *Engine) search(ctx context.Context, q Question, anchors []Anchor, vec [
 			return nil, nil, calls, fmt.Errorf("prove: chain reconstruction: %w", err)
 		}
 		for _, r := range rows {
-			c, ok := chainFromRow(r)
+			c, ok := chainFromRow(r, rootConf[s.tip.rootID])
 			if ok {
 				chains = append(chains, c)
 			}
@@ -567,8 +572,10 @@ func (e *Engine) frontier(ctx context.Context, q Question, roots []string, vec [
 	return out, calls, nil
 }
 
-// chainFromRow decodes one ProveChain result.
-func chainFromRow(r kg.Row) (Chain, bool) {
+// chainFromRow decodes one ProveChain result. rootConf is the grounded root
+// claim's own confidence, which carries no ENTAILS edge and so must be folded
+// in separately from the edge weights the query returns.
+func chainFromRow(r kg.Row, rootConf float64) (Chain, bool) {
 	ids, ok := r.Strings("claimIDs")
 	if !ok || len(ids) == 0 {
 		return Chain{}, false
@@ -576,7 +583,7 @@ func chainFromRow(r kg.Row) (Chain, bool) {
 	texts, _ := r.Strings("claimTexts")
 	weights, _ := r.Ints("stepWeights")
 
-	total := r.IntOr("weight", 0)
+	total := r.IntOr("weight", 0) + kg.WeightFromConfidence(rootConf)
 	c := Chain{
 		Weight:     total,
 		Confidence: kg.ConfidenceFromWeight(total),
@@ -595,7 +602,7 @@ func chainFromRow(r kg.Row) (Chain, bool) {
 			s.Weight = weights[i-1]
 			s.Conf = kg.ConfidenceFromWeight(weights[i-1])
 		} else {
-			s.Conf = 1
+			s.Conf = rootConf
 		}
 		c.Steps = append(c.Steps, s)
 	}

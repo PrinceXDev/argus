@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/prince/argus/internal/corpus"
@@ -57,27 +59,49 @@ func (r *Runner) Run(ctx context.Context, qs corpus.QuestionSet, arms []Arm, mod
 		r.log.Info("running arm", "arm", arm.Name(), "questions", len(qs.Questions))
 
 		outcomes := make([]Outcome, len(qs.Questions))
+		sem := make(chan struct{}, max(1, r.Concurrency))
+		var wg sync.WaitGroup
+		var done atomic.Int64
+
 		for i, q := range qs.Questions {
 			select {
 			case <-ctx.Done():
+				wg.Wait()
 				return report, ctx.Err()
 			default:
 			}
 
-			query := Query{Text: q.Text, Vec: vecs[i], AsOf: q.AsOf}
-			if query.AsOf.IsZero() {
-				// Without an explicit as-of, questions are evaluated against the
-				// present. Leaving it zero would place every query in year 1 and
-				// make the temporal filter exclude everything.
-				query.AsOf = time.Now()
-			}
+			wg.Add(1)
+			go func(i int, q corpus.Question) {
+				defer wg.Done()
+				select {
+				case sem <- struct{}{}:
+				case <-ctx.Done():
+					return
+				}
+				defer func() { <-sem }()
 
-			resp, err := arm.Answer(ctx, query)
-			outcomes[i] = Grade(q, arm.Name(), resp, err)
+				query := Query{Text: q.Text, Vec: vecs[i], AsOf: q.AsOf}
+				if query.AsOf.IsZero() {
+					// Without an explicit as-of, questions are evaluated against the
+					// present. Leaving it zero would place every query in year 1 and
+					// make the temporal filter exclude everything.
+					query.AsOf = time.Now()
+				}
 
-			if (i+1)%10 == 0 {
-				r.log.Debug("progress", "arm", arm.Name(), "done", i+1, "of", len(qs.Questions))
-			}
+				resp, err := arm.Answer(ctx, query)
+				// Each goroutine only ever writes its own index, so this is safe
+				// without a mutex.
+				outcomes[i] = Grade(q, arm.Name(), resp, err)
+
+				if n := done.Add(1); n%10 == 0 {
+					r.log.Debug("progress", "arm", arm.Name(), "done", n, "of", len(qs.Questions))
+				}
+			}(i, q)
+		}
+		wg.Wait()
+		if err := ctx.Err(); err != nil {
+			return report, err
 		}
 
 		m := Compute(arm.Name(), arm.Describe(), outcomes)

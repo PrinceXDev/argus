@@ -283,8 +283,9 @@ func (c *OpenRouter) do(ctx context.Context, path string, body, out any) error {
 	}
 
 	var lastErr error
+	skipBackoff := false
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
-		if attempt > 0 {
+		if attempt > 0 && !skipBackoff {
 			delay := backoff(attempt)
 			select {
 			case <-ctx.Done():
@@ -292,6 +293,7 @@ func (c *OpenRouter) do(ctx context.Context, path string, body, out any) error {
 			case <-time.After(delay):
 			}
 		}
+		skipBackoff = false
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(payload))
 		if err != nil {
@@ -335,6 +337,9 @@ func (c *OpenRouter) do(ctx context.Context, path string, body, out any) error {
 						return ctx.Err()
 					case <-time.After(d):
 					}
+					// The server-requested delay already happened; the next
+					// iteration's exponential backoff would otherwise double it.
+					skipBackoff = true
 				}
 			}
 			continue

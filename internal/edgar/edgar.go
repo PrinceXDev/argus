@@ -217,8 +217,17 @@ func (c *Client) get(ctx context.Context, url string) ([]byte, error) {
 		return nil, fmt.Errorf("edgar: GET %s: HTTP %d", url, resp.StatusCode)
 	}
 	// Filings can be large; the cap prevents one pathological exhibit from
-	// exhausting memory.
-	return io.ReadAll(io.LimitReader(resp.Body, 16<<20))
+	// exhausting memory. Read one byte past the cap so truncation can be
+	// detected instead of silently ingesting a partial document.
+	const maxBody = 16 << 20
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
+	if err != nil {
+		return nil, fmt.Errorf("edgar: read %s: %w", url, err)
+	}
+	if len(body) > maxBody {
+		return nil, fmt.Errorf("edgar: GET %s: response exceeds %d byte limit, refusing truncated filing", url, maxBody)
+	}
+	return body, nil
 }
 
 var (

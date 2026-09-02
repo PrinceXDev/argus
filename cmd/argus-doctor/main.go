@@ -58,6 +58,16 @@ func run(ctx context.Context, url, scratch string) error {
 	// make a later run report a false pass.
 	_ = c.DropGraph(ctx, scratch)
 
+	// Deferred so a failing probe still drops the scratch graph instead of
+	// leaking it until some later run happens to clean up after itself.
+	defer func() {
+		if err := c.DropGraph(context.WithoutCancel(ctx), scratch); err != nil {
+			warn("cleanup", err.Error())
+		} else {
+			ok("cleanup", "scratch graph dropped")
+		}
+	}()
+
 	if err := spikeFloatWeights(ctx, c, scratch); err != nil {
 		return err
 	}
@@ -65,12 +75,6 @@ func run(ctx context.Context, url, scratch string) error {
 		return err
 	}
 	spikeReadOnly(ctx, url, scratch)
-
-	if err := c.DropGraph(ctx, scratch); err != nil {
-		warn("cleanup", err.Error())
-	} else {
-		ok("cleanup", "scratch graph dropped")
-	}
 
 	fmt.Println("\nAll required checks passed.")
 	return nil

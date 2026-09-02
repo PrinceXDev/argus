@@ -182,6 +182,9 @@ func (s *Server) ask(ctx context.Context, stream *sse, req AskRequest) error {
 		} else {
 			verdict.Status = ruling.Status(verdict.Status)
 			stream.send("ruling", ruling)
+			// The client stored the verdict emitted before adjudication; resend it
+			// so that stored copy reflects the post-adjudication status too.
+			stream.send("verdict", verdict)
 		}
 	}
 
@@ -242,6 +245,7 @@ func (s *Server) evidence(ctx context.Context, v *prove.Verdict) ([]answer.Evide
 // RetractRequest asks which fact a conclusion rests on.
 type RetractRequest struct {
 	Question      string  `json:"question"`
+	ClaimID       string  `json:"claimId"`
 	LeapBudget    int64   `json:"leapBudget"`
 	MinConfidence float64 `json:"minConfidence"`
 	AsOf          string  `json:"asOf"`
@@ -301,7 +305,7 @@ func (s *Server) handleRetract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	analysis, err := s.retract.Analyse(ctx, q, vecs[0], base)
+	analysis, err := s.retract.Analyse(ctx, q, vecs[0], base, req.ClaimID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
