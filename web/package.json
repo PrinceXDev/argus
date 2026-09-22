@@ -1,0 +1,28 @@
+{
+	"name": "argus-web",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"lint:fix": "biome check --write .",
+		"ci": "biome check . && tsc --noEmit && next build"
+	},
+	"dependencies": {
+		"next": "^16.3.4",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.5.11",
+		"@tailwindcss/postcss": "^4.3.3",
+		"@types/node": "22.10.7",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.5",
+		"tailwindcss": "^4.3.3",
+		"typescript": "5.7.3"
+	}
+}

@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+	--color-ink: #0a0c10;
+	--color-panel: #12151c;
+	--color-panel-2: #171b24;
+	--color-line: #232936;
+	--color-muted: #7d8797;
+	--color-fg: #e6eaf2;
+
+	--color-proven: #3fb950;
+	--color-contested: #d29922;
+	--color-abstain: #8b949e;
+	--color-critical: #f85149;
+	--color-accent: #7c6cff;
+
+	--font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+html,
+body {
+	background: var(--color-ink);
+	color: var(--color-fg);
+	-webkit-font-smoothing: antialiased;
+}
+
+/* The chain animates in step by step. The stagger is the demo: the reasoning
+   should look like it is being assembled, because it is. */
+@keyframes stepIn {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+.step-in {
+	animation: stepIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes drawLine {
+	from {
+		transform: scaleY(0);
+	}
+	to {
+		transform: scaleY(1);
+	}
+}
+.draw-line {
+	transform-origin: top;
+	animation: drawLine 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.step-in,
+	.draw-line {
+		animation: none;
+	}
+}
+
+::selection {
+	background: color-mix(in oklab, var(--color-accent) 40%, transparent);
+}
